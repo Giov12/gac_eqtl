@@ -20,8 +20,8 @@ cd $outdir
 
 # the gtf file created from gff3 using gffread
 STAR --runThreadN $thr --runMode genomeGenerate --genomeDir ${outdir} \
-    --genomeFastaFiles $ref --sjdbGTFfile $gtf --sjdbOverhang 149 \
-    --genomeSAindexNbases 13 # based on previous run to avoid warning
+     --genomeFastaFiles $ref --sjdbGTFfile $gtf --sjdbOverhang 149 \
+     --genomeSAindexNbases 13 # based on previous run to avoid warning
 
 # recompress
 gzip $ref
