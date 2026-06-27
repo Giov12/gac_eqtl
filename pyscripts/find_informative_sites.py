@@ -5,33 +5,37 @@ import argparse
 import os
 import sys
 
-vcf_file      =  ''
+vcf_files     = list()
 eqtl_file     = ''
-fixed_alleles = set() # tuples of (chr bp)
+info_sites    = set() # tuples of chr & bp
    
 def get_arguments() -> int:
     """function to set the global variables"""
 
-    global vcf_file, eqtl_file
+    global vcf_files, eqtl_file
 
     parser = argparse.ArgumentParser(description="Filter a table of eQTLs from stickleback for fixed common/white alleles")
-    parser.add_argument("-v", "--vcf",   required=True, type=str, help="vcf file with common and white stickleback")
+    parser.add_argument("-v", "--vcfs",   required=True, nargs='*', help="vcf files with common and white stickleback")
     parser.add_argument("-e", "--eqtls", required=True, type=str, help="eqtl file with common and white stickleback")
 
     args      = parser.parse_args()
-    vcf_file  = args.vcf
+    vcfs      = args.vcfs
     eqtl_file = args.eqtls
 
     # make sure input files exist
-    assert os.path.isfile(vcf_file), f"Could not locate {vcf_file}"
     assert os.path.isfile(eqtl_file), f"Could not locate {eqtl_file}"
+    assert len(vcfs) > 0, "At least one vcf file must be provided"
+
+    for vcf in vcfs:
+        assert os.path.isfile(vcf), f"Could not locate {vcf}"
+        vcf_files.append(vcf)
 
     return 0
 
 def get_fixed_sites() -> int:
-    """Find the load the fixed differences between commons vs whites"""
+    """Find the load the informative sites between commons vs whites"""
 
-    global vcf_file, fixed_alleles
+    global vcf_files, info_sites
 
     #
     # Common samples have a prefix of CB
