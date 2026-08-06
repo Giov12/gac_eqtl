@@ -20,7 +20,6 @@ class InfoSite:
         str1 = "Common (" + ','.join(self.common_alleles) + ')'
         str2 = "Whites (" + ','.join(self.white_alleles) + ')'
         return str1 + ", " + str2
-
    
 def get_arguments() -> int:
     """function to set the global variables"""
