@@ -3,10 +3,10 @@
 #SBATCH --nodes=1 #nodes
 #SBATCH --ntasks=24 #threads
 #SBATCH --job-name=gac.star
-#SBATCH --partition=catchenlab
+#SBATCH --partition=<Partition-Name>
 
 # params
-working_dir=/projects/catchenlab/gm33/gac_eQTL
+working_dir=/path/to/a/parentdir
 reads_dir=${working_dir}/raw
 outdir=${working_dir}/alignments
 ref_dir=${working_dir}/assembly

@@ -1,9 +1,10 @@
 # set some general input variables
-wd = "/Users/giovannimadrigal/Library/CloudStorage/Box-Box/USB_GIO/Research/Stickleback_eQTL/R_Analysis/20231020_Analysis/10Kb_Distance"
+wd = "/path/to/working_dir"
 setwd(wd)
 
-norm_counts_file = "gac_GE_Matrix.tsv"
-snp_matrix_file = "Filtered_populations.snps_10000bp_Dist_SNPs_SNPsMatrix.tsv"
+norm_counts_file = "logged_normalized_features.tsv"
+gene_pos_file    = "geneposition_file.tsv"
+covariates_file  = "kinship.pcs.covariates.tsv"
 
 # setting some params for things I don't have
 library(MatrixEQTL)
@@ -27,21 +28,20 @@ gene$LoadFile(norm_counts_file)
 
 
 # create the model using some testing params
-output_file_name = paste(wd, "MatrixEQTL_Test.txt", sep = '/')
-useModel = modelLINEAR # other options include modelANOVA, modelLINEAR_CROSS
-pval_threshold = 1e-3
-cisDist = 1e6
+output_file_name   = paste(wd, "MatrixEQTL_results.txt", sep = '/')
+useModel           = modelLINEAR # other options include modelANOVA, modelLINEAR_CROSS
+pval_threshold     = 1e-3
+cisDist            = 1e6
 pval_threshold_cis = 1e-3
 
 # now to include snp and gene positions
-snpspos = "Filtered_populations.snps_10000bp_Dist_SNPs_snpspos.tsv"
+snpspos = "snp_positions.tsv"
 genepos = "stickleback_v5_ensembl_genes_genepos_full.tsv"
 
 snpspos = read.table(snpspos, header = TRUE, stringsAsFactors = FALSE, sep = '\t')
 genepos = read.table(genepos, header = TRUE, stringsAsFactors = FALSE, sep = '\t')
 
-
-output_cis = "eQTL_Testing_cis"
+output_cis = "eQTL_cis"
 me = Matrix_eQTL_main(snps = snps, gene = gene, cvrt = SlicedData$new(),
                         output_file_name = output_file_name, pvOutputThreshold = pval_threshold,
                         useModel = useModel, errorCovariance = numeric(), output_file_name.cis = output_cis,

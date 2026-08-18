@@ -3,10 +3,10 @@
 #SBATCH --nodes=1 #nodes
 #SBATCH --ntasks=4 #threads
 #SBATCH --job-name=gac.htseq-counts
-#SBATCH --partition=catchenlab
+#SBATCH --partition=<Partition-Name>
 
 # params
-working_dir=/projects/catchenlab/gm33/gac_eQTL
+working_dir=/path/to/parentdir
 gtf=${working_dir}/annotations/stickleback_v5_ensembl_genes.gtf
 bams=$(ls -1 ${working_dir}/alignments/*.bam | tr '\n' ' ' | sed 's/ $//g')
 outdir=${working_dir}/htseq_counts

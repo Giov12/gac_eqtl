@@ -50,7 +50,7 @@ def load_population_assignments() -> int:
 
     #
     # expected file structure
-    # sample \t population \t ecotype
+    # sample \t ecotype
     #
     # for this analysis, we will
     # create a mapping of sample -> ecotype
@@ -62,10 +62,9 @@ def load_population_assignments() -> int:
         if (len(line) == 0 or line[0] == '#'):
             continue
         fields = line.split('\t')
-        if ("sample.id" in fields[0]):
-            continue # this is the column labels
-        sample  = fields[0].strip('"')
-        ecotype = fields[2].strip('"\n ')
+        assert len(fields) == 2, f"Expected 2 columns. Look at line {line}"
+        sample  = fields[0]
+        ecotype = fields[1].strip()
         meta_info[sample] = ecotype
 
     fh.close()
@@ -103,8 +102,10 @@ def get_informative_sites() -> int:
                 for i in range(9, len(fields)):
                     sample = fields[i]
                     if (sample not in meta_info):
-                        msg = f"{sample} in vcf file but not meta information file"
-                        sys.exit(msg)
+                        # we only care about the samples provided in the
+                        # meta data
+                        phenotypes.append('S') # S == Skip
+                        continue
                     ecotype = meta_info[sample][0]
                     phenotypes.append(ecotype)
                 if (len(phenotypes) != len(meta_file)):
@@ -117,6 +118,8 @@ def get_informative_sites() -> int:
 
         for i in range(9, len(fields)):
             pheno   = phenotypes[i - 9]
+            if (pheno == 'S'):
+                continue # skip
             info    = fields[i]
             idx     = info.find(':')
             geno    = info[:idx]

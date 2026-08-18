@@ -3,10 +3,10 @@
 #SBATCH --nodes=1 #nodes
 #SBATCH --ntasks=20 #threads
 #SBATCH --job-name=gac.build.genome
-#SBATCH --partition=catchenlab
+#SBATCH --partition=<Partition-Name>
 
 # params
-working_dir=/projects/catchenlab/gm33/gac_eQTL
+working_dir=/path/to/parentDir
 outdir=${working_dir}/assembly
 ref=${outdir}/stickleback_v5_assembly.fa
 gtf=${working_dir}/annotations/stickleback_v5_ensembl_genes.gtf

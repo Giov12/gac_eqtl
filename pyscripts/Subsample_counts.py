@@ -6,10 +6,10 @@ import os
 import sys
 
 def get_arguments():
-    """function to return the paths to the htseq counts file and list of samples"""
+    """function to return the paths to the counts file and list of samples"""
 
-    parser = argparse.ArgumentParser(description="Subsample a HTSeqs table for the samples provided in the samples file")
-    parser.add_argument("-c", "--counts", required=True, type=str, help="htseq counts file")
+    parser = argparse.ArgumentParser(description="Subsample a counts table for the samples provided in the samples file")
+    parser.add_argument("-c", "--counts", required=True, type=str, help="counts file")
     parser.add_argument("-s", "--samples", required=True, type=str, help="A single column list of the samples to select from")
 
 
