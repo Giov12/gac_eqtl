@@ -114,8 +114,9 @@ def parse_vcf(vcf: str) -> int:
     outname = "Deg.eQTL.GenoExpr.tsv"
 
     outfh   = open(outname, 'w')
-    header  = "Chr\tBP\tType\tpvalue\tBH\tgene_id\t"  # will be written out after getting sample order
+    header  = "#ID\tChr\tBP\tType\tpvalue\tBH\tgene_id\t"  # will be written out after getting sample order
     samples = []
+    id_cnt  = 0
 
     # now for the filtering
     fh = gzip.open(vcf, "rt") if vcf.endswith(".gz") else open(vcf, 'r')
@@ -167,7 +168,7 @@ def parse_vcf(vcf: str) -> int:
                 etype = record[1]
                 pval  = record[2]
                 bh    = record[3]
-                outline = [chrom, bp, etype, pval, bh, gene]
+                outline = [str(id_cnt), chrom, bp, etype, pval, bh, gene]
                 genoExp = defaultdict(list) # genotype -> list[expr levels]
                 for i in range(len(samples)):
                     sample   = samples[i]
@@ -193,6 +194,7 @@ def parse_vcf(vcf: str) -> int:
                 outline.append('\n')
                 outline = '\t'.join(outline)
                 outfh.write(outline)
+                id_cnt += 1
 
     # close IOs
     fh.close()

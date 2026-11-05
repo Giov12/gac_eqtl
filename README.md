@@ -55,7 +55,7 @@ Optionally, `MatrixEQTL` can incorporate covariates into the analysis to take in
 
 Once all the data is loaded, one can identify potentially associative *cis* and *trans* elements given a user defined distance. An example of the general workflow I followed can be seen in *Rscripts/MatrixEQTL_Analysis.R*
 
-Since there will be many eQTLs reported but not all may be related due to ecotypic differences (i.e., common vs white), there is an additional script that was written to filter for eQTLs for variants where the variants are either fixed between the two different ecotypes, or variants where they are either fixed between the two ecotypes or where one of the alleles is private in one of the ecotypes. The ecotypic information currently is hard coded in the python script but this will likely change when we obtain a large dataset of the two ecotypes.
+Since there will be many eQTLs reported but not all may be related due to ecotypic differences (i.e., common vs white), there is an additional script that was written to filter for eQTLs for variants where the variants are either fixed between the two different ecotypes, or where one of the alleles is private in one of the ecotypes. The ecotypic information currently is hard coded in the python script but this will likely change when we obtain a large dataset of the two ecotypes.
 ```
-python3 find_informative_sites.py --vcf ecotypes.vcf.gz --eqtls ematrix.results.tsv
+python3 filter_for_informative.py --vcf ecotypes.vcf.gz --eqtls ematrix.results.tsv
 ```

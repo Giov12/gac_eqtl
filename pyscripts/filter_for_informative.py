@@ -4,12 +4,15 @@ import gzip
 import argparse
 import os
 import sys
+from typing import TextIO
+from collections import defaultdict
 
 meta_file  = ''
 meta_info  = dict()
 vcf_file   = list()
 eqtl_file  = ''
 info_sites = dict() # key -> chr & int(bp), value Info Site Class
+minSupport = 0.8
 
 class InfoSite:
     def __init__(self) -> None:
@@ -24,24 +27,40 @@ class InfoSite:
 def get_arguments() -> int:
     """function to set the global variables"""
 
-    global vcf_file, eqtl_file, meta_file
+    global vcf_file, eqtl_file, meta_file, minSupport
 
-    parser = argparse.ArgumentParser(description="Filter a table of eQTLs from stickleback for fixed and/or private common/white alleles")
-    parser.add_argument("-v", "--vcf",   required=True, type=str, help="a vcf files with common and white stickleback")
-    parser.add_argument("-e", "--eqtls", required=True, type=str, help="eqtl file with common and white stickleback")
-    parser.add_argument("-m", "--meta",  required=True, type=str, help="a file containing the population assignments for each sample")
+    desc  = "Filter a table of eQTLs from stickleback for fixed and/or private common/white alleles"
+    vhelp = "A vcf file with common and white stickleback"
+    ehelp = "eQTL file with common and white stickleback"
+    mhelp = "A file containing the population assignments for each sample"
+    shelp = "Minimum fraction of samples needed per population to support the site"
 
-    args      = parser.parse_args()
-    vcf_file  = args.vcf
-    eqtl_file = args.eqtls
-    meta_file = args.meta
+    parser = argparse.ArgumentParser(description=desc)
+    parser.add_argument("-v", "--vcf",     required=True,      type=str,   help=vhelp)
+    parser.add_argument("-e", "--eqtls",   required=True,      type=str,   help=ehelp)
+    parser.add_argument("-m", "--meta",    required=True,      type=str,   help=mhelp)
+    parser.add_argument("-s", "--support", default=minSupport, type=float, help=shelp)
+
+    args       = parser.parse_args()
+    vcf_file   = args.vcf
+    eqtl_file  = args.eqtls
+    meta_file  = args.meta
+    minSupport = args.support
 
     # make sure input files exist
-    assert os.path.isfile(vcf_file), f"Could not locate {vcf_file}"
+    assert os.path.isfile(vcf_file),  f"Could not locate {vcf_file}"
     assert os.path.isfile(eqtl_file), f"Could not locate {eqtl_file}"
     assert os.path.isfile(meta_file), f"Could not locate {meta_file}"
 
+    if (minSupport > 1.0 or minSupport < 0):
+        msg = "Error: --support must be between 0 and 1.0"
+        sys.exit(msg)
+
     return 0
+
+def open_file(infile: str) -> TextIO:
+    """"helper function to open a file"""
+    return gzip.open(infile, "rt") if infile.endswith(".gz") else open(infile, 'r')
 
 def load_population_assignments() -> int:
     """load in the ecotype assignments for each of the samples"""
@@ -56,7 +75,7 @@ def load_population_assignments() -> int:
     # create a mapping of sample -> ecotype
     #
 
-    fh = gzip.open(meta_file, "rt") if meta_file.endswith(".gz") else open(meta_file, 'r')
+    fh = open_file(meta_file)
 
     for line in fh:
         if (len(line) == 0 or line[0] == '#'):
@@ -76,15 +95,26 @@ def load_population_assignments() -> int:
 def get_informative_sites() -> int:
     """Find the load the informative sites between commons vs whites"""
 
-    global vcf_file, info_sites, meta_info
+    global vcf_file, info_sites, meta_info, minSupport
 
-    fh          = gzip.open(vcf_file, "rt") if vcf_file.endswith(".gz") else open(vcf_file, 'r')
-    phenotypes  = list()
+    fh         = open_file(vcf_file)
+    ecotypes   = list()
+    samples    = list()
+    pop_counts = defaultdict(int)
 
     #
     # ecotypes will be encoded as
     # Common -> c, Whites -> w
     #
+
+    #
+    # Hard code the sex chrom IDs since those
+    # variants were only called using one of the
+    # sexes (i.e., males all have ./. in X chrom &
+    # females all have ./. on Y)
+    # 
+    XCHROM = "chrXIX"
+    YCHROM = "chrY"
 
     #  
     # !!!!!!!!!!!!!
@@ -101,24 +131,34 @@ def get_informative_sites() -> int:
                 fields = line.strip().split('\t')
                 for i in range(9, len(fields)):
                     sample = fields[i]
+                    samples.append(sample)
                     if (sample not in meta_info):
                         # we only care about the samples provided in the
                         # meta data
-                        phenotypes.append('S') # S == Skip
+                        ecotypes.append('S') # S == Skip
                         continue
                     ecotype = meta_info[sample][0]
-                    phenotypes.append(ecotype)
-                if (len(phenotypes) != len(meta_file)):
+                    ecotypes.append(ecotype)
+                    pop_counts[ecotype] += 1
+                if (len(ecotypes) != len(meta_info)):
                     msg = "samples in vcf and meta information are not equal. Unreliable"
                     sys.exit(msg)
             continue
         fields   = line.strip().split('\t')
+        chrom    = fields[0]
         wAlleles = set()
         cAlleles = set()
+        counts   = {p : cnt for p, cnt in pop_counts.items()}
+
+        # create an allele mapping
+        nucs = [fields[3]]
+        for nuc in fields[4].split(','):
+            nucs.append(nuc)
 
         for i in range(9, len(fields)):
-            pheno   = phenotypes[i - 9]
-            if (pheno == 'S'):
+            ecotype = ecotypes[i - 9]
+            sample  = samples[i - 9] 
+            if (ecotype == 'S'):
                 continue # skip
             info    = fields[i]
             idx     = info.find(':')
@@ -126,18 +166,36 @@ def get_informative_sites() -> int:
             alleles = geno.split('/')
             if (len(alleles) != 2 and geno.count('|') > 0):
                 alleles = geno.split('|')
+            haploid = False
             if (len(alleles) != 2):
-                msg = f"Encountered an ilformated entry in the vcf\n" + \
-                      f"Offending line: {line}"
-                sys.exit(msg)
+                if (chrom != YCHROM and chrom != XCHROM):
+                    msg = f"Encountered an malformated entry in the vcf\n" + \
+                          f"Offending line: {line}"
+                    sys.exit(msg)
+                else:
+                    haploid = True
             if (alleles[0] == '.'):
+                # avoid penalizing sites where sex chroms were only called
+                # for a specific sex
+                if (chrom != YCHROM and chrom != XCHROM):
+                    counts[ecotype] -= 1
+                elif (chrom == YCHROM and sample.startswith('M')):
+                    counts[ecotype] -= 1
+                elif (chrom == XCHROM and sample.startswith('F')):
+                    counts[ecotype] -= 1
                 continue # skip missing calls
-            if (pheno == 'c'):
-                cAlleles.add(alleles[0])
-                cAlleles.add(alleles[1])
+            if (ecotype == 'c'):
+                if (haploid and len(alleles) == 1):
+                    cAlleles.add(alleles[0])
+                else:
+                    cAlleles.add(alleles[0])
+                    cAlleles.add(alleles[1])
             else:
-                wAlleles.add(alleles[0])
-                wAlleles.add(alleles[1])
+                if (haploid and len(alleles) == 1):
+                    wAlleles.add(alleles[0])
+                else:
+                    wAlleles.add(alleles[0])
+                    wAlleles.add(alleles[1])
 
         # now check that they don't match
         if (len(wAlleles) > 0 and len(cAlleles) > 0):
@@ -147,19 +205,26 @@ def get_informative_sites() -> int:
                 if (len(wAlleles.difference(cAlleles)) > 0 or len(cAlleles.difference(wAlleles)) > 0):
                     valid = True
             if (valid):
+                # now test for min support
+                for p, cnt in counts.items():
+                    tot = pop_counts[p]
+                    if (cnt / tot < minSupport):
+                        valid = False
+                        break
+            if (valid):
                 chrom  = fields[0].replace("chr", '') if fields[0].startswith("chr") else fields[0]
                 offset = 71 if chrom == "XVIII" else 0
                 bp     = int(fields[1]) - offset
                 if (bp > 0): # this bp position exists in the Ensembl assembly
                     site = InfoSite()
-                    site.common_alleles = cAlleles
-                    site.white_alleles  = wAlleles
+                    site.common_alleles = set([nucs[int(n)] for n in cAlleles])
+                    site.white_alleles  = set([nucs[int(n)] for n in wAlleles])
                     info_sites[(chrom, bp)] = site
 
     fh.close()
 
     if (len(info_sites) == 0):
-        msg = f"Did not find any fixed differences between commons and whites"
+        msg = f"Did not find any informative sites between commons and whites"
         sys.exit(msg)
     
     print(f"Found a total of {len(info_sites)} informative sites between commons and whites")
@@ -183,11 +248,11 @@ def make_output_name() -> str:
 
     
 def filter_eqtls() -> int:
-    """check the eQTL and see if it is a fixed difference"""
+    """check the eQTL and see if we can find any sites that overlap with the informative sites"""
 
     global info_sites, eqtl_file
 
-    fh  = gzip.open(eqtl_file, "rt") if eqtl_file.endswith(".gz") else open(eqtl_file, 'r')
+    fh  = open_file(eqtl_file)
     ofh = open(make_output_name(), 'w')
     cnt = 0 # count of number of records written
     lnm = 0 # line number
@@ -195,23 +260,22 @@ def filter_eqtls() -> int:
     for line in fh:
         if (len(line) == 0):
             continue
+        line   = line.rstrip("\r\n\t ")
         fields = line.split('\t')
-        lnm += 1
+        last   = fields[-1] + '\n'
+        lnm   += 1
         if (lnm == 1): # should be the header
             # add a new column
-            last  = fields[-1]
-            label = "Allele.Info"
-            fields[-1] = label
+            fields[-1] = "Allele.Info"
             fields.append(last)
             line = '\t'.join(fields)
             ofh.write(line)
         else:
-            chrom  = fields[0]
-            bp     = int(fields[1])
+            chrom  = fields[1]
+            bp     = int(fields[2])
             if ((chrom, bp) in info_sites):
                 site = info_sites[(chrom, bp)]
                 # add a new column
-                last = fields[-1]
                 # add the new column
                 fields[-1] = site.get_repr()
                 fields.append(last) # re-add this column
@@ -231,6 +295,9 @@ def main():
 
     # get the inputs
     get_arguments()
+
+    # load the meta information for each sample
+    load_population_assignments()
 
     # find the informative sites
     get_informative_sites()
