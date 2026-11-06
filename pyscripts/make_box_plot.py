@@ -36,10 +36,16 @@ def load_data() ->tuple[str, str, str, str]:
 
     fh = gzip.open(dataFile, "rt") if dataFile.endswith(".gz") else open(dataFile, 'r')
     fd = False
-
+    of = -1 # offset
     for line in fh:
         if (len(line) == 0):
-            continue
+            continue 
+        if (of == -1):
+            # set the offset
+            if ("Allele.Info" in line):
+                of = 2
+            else:
+                of = 1 
         fields = line.split('\t')
         if (fields[0] != rec_id):
             continue
@@ -48,7 +54,7 @@ def load_data() ->tuple[str, str, str, str]:
         bp    = fields[2]
         type_ = fields[3]
         gene  = fields[6]
-        for i in range(7, len(fields) - 2):
+        for i in range(7, len(fields) - of):
             entry = fields[i].split('|')
             geno  = entry[0]
             exp   = float(entry[1])
